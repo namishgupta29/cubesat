@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🛰️ Smart CubeSat Communication Testbed</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<style>
+/* ═══════════════════════════ RESET & BASE ═══════════════════════════ */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e17;--panel:#111827;--border:#1e3a5f;
+  --cyan:#00d4ff;--green:#00ff88;--orange:#ff9f43;
+  --red:#ff3366;--purple:#a855f7;--gold:#f0c040;
+  --text:#e0e6ed;--dim:#6b7a90;
+}
+html,body{height:100%;font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+a{color:var(--cyan)}
+/* ═══════════════════════════ HEADER ═══════════════════════════ */
+.header{background:linear-gradient(90deg,#0d1a2e,#162040);padding:6px 20px;display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--border)}
+.header h1{font-size:16px;font-weight:600;white-space:nowrap}
+.header h1 span{color:var(--cyan)}
+.header .group{font-size:11px;color:var(--dim);margin-left:auto}
+/* ═══════════════════════════ TAB BAR ═══════════════════════════ */
+.tab-bar{display:flex;background:#0d1322;border-bottom:2px solid var(--border)}
+.tab-btn{flex:1;padding:10px 8px;border:none;background:transparent;color:var(--dim);font-size:13px;font-weight:600;cursor:pointer;transition:.2s;border-bottom:3px solid transparent;font-family:inherit}
+.tab-btn:hover{color:var(--text);background:#141e30}
+.tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan);background:#111d30}
+/* ═══════════════════════════ TABS ═══════════════════════════ */
+.tab-content{display:none;height:calc(100vh - 88px);overflow:auto}
+.tab-content.active{display:flex}
+/* ═══════════════════════════ TAB 1: MISSION CONTROL ═══════════════════════════ */
+.mission-control{display:grid;grid-template-columns:260px 1fr 320px;gap:0;width:100%;height:100%}
+.panel{padding:10px;overflow-y:auto;border-right:1px solid var(--border)}
+.panel:last-child{border-right:none}
+.panel-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--cyan);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+/* sliders */
+.slider-group{margin-bottom:12px}
+.slider-label{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;color:var(--dim)}
+.slider-label .val{color:var(--green);font-weight:700;font-family:'Courier New',monospace}
+input[type=range]{width:100%;height:6px;-webkit-appearance:none;background:#1e3a5f;border-radius:3px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--cyan);cursor:pointer;box-shadow:0 0 6px rgba(0,212,255,.5)}
+/* center column */
+.center-panel{display:flex;flex-direction:column;gap:4px;padding:6px;overflow-y:auto;overflow-x:hidden}
+.three-container{position:relative;height:45%;min-height:180px;max-height:300px;background:#060a12;border-radius:6px;border:1px solid var(--border);overflow:hidden;flex-shrink:0}
+.three-container canvas{width:100%!important;height:100%!important}
+.attitude-hud{position:absolute;top:6px;left:8px;font-size:10px;font-family:'Courier New',monospace;color:var(--green);line-height:1.6;text-shadow:0 0 6px rgba(0,255,136,.4)}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;flex:1;min-height:180px}
+.chart-box{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;display:flex;flex-direction:column;min-height:150px;position:relative}
+.chart-box h4{font-size:10px;color:var(--dim);text-align:center;margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}
+.chart-box canvas{width:100%!important;height:100%!important;min-height:120px}
+/* right terminal */
+.terminal{background:#050a0f;border-radius:6px;border:1px solid var(--border);font-family:'Courier New',Consolas,monospace;font-size:10.5px;line-height:1.5;padding:6px;overflow-y:auto;flex:1;min-height:0}
+.terminal .pkt-head{color:var(--cyan)}
+.terminal .pkt-ok{color:var(--green)}
+.terminal .pkt-drop{color:var(--red)}
+.terminal .pkt-data{color:#8892a0}
+.terminal .pkt-json{color:#5a6577}
+.terminal .pkt-mac{color:var(--orange)}
+.right-panel{display:flex;flex-direction:column;gap:6px}
+.right-panel .panel-title{margin-bottom:6px}
+.btn-row{display:flex;gap:6px;margin-bottom:6px}
+.btn-sm{padding:4px 10px;border:1px solid var(--border);background:#162040;color:var(--dim);font-size:10px;cursor:pointer;border-radius:4px;font-family:inherit}
+.btn-sm:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn-sm.active-btn{border-color:var(--green);color:var(--green)}
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px}
+.stat-box{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:6px;text-align:center}
+.stat-box .stat-val{font-size:18px;font-weight:700;font-family:'Courier New',monospace}
+.stat-box .stat-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.stat-green .stat-val{color:var(--green)}
+.stat-cyan .stat-val{color:var(--cyan)}
+.stat-orange .stat-val{color:var(--orange)}
+.stat-red .stat-val{color:var(--red)}
+/* ═══════════════════════════ TAB 2: CIRCUIT ═══════════════════════════ */
+.circuit-tab{flex-direction:column;padding:20px 30px;align-items:stretch;width:100%}
+.circuit-tab h2{font-size:20px;color:var(--cyan);margin-bottom:14px;text-align:center}
+.svg-container{width:100%;background:#0c1220;border:1px solid var(--border);border-radius:8px;padding:16px}
+.svg-container svg{width:100%;height:auto;min-height:500px}
+/* SVG interactive pins */
+.pin-dot{cursor:pointer;transition:all .25s}
+.pin-dot:hover{r:9;filter:drop-shadow(0 0 8px #00ff88)}
+.wire{transition:stroke-width .2s;cursor:pointer}
+.wire:hover{stroke-width:5;filter:drop-shadow(0 0 6px currentColor)}
+.comp-box{cursor:default}
+.comp-box:hover{filter:brightness(1.2)}
+/* pinout table */
+.pinout-section{max-width:1200px;width:100%;margin-top:20px}
+.pinout-section h3{font-size:14px;color:var(--green);margin-bottom:8px}
+table.pin-table{width:100%;border-collapse:collapse;font-size:12px}
+table.pin-table th{background:#162040;color:var(--cyan);padding:8px 10px;text-align:left;border:1px solid var(--border)}
+table.pin-table td{padding:7px 10px;border:1px solid var(--border)}
+table.pin-table tr:nth-child(even){background:#0d1525}
+table.pin-table tr:hover{background:#1a2744}
+.wire-swatch{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle;margin-right:5px;border:1px solid #333}
+/* ═══════════════════════════ TAB 3: OVERVIEW ═══════════════════════════ */
+.overview-tab{flex-direction:column;padding:24px 40px;align-items:center}
+.overview-tab .section{max-width:1100px;width:100%;margin-bottom:30px}
+.overview-tab h2{font-size:20px;color:var(--cyan);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.overview-tab h3{font-size:15px;color:var(--green);margin:16px 0 8px}
+/* architecture diagram */
+.arch-diagram{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;padding:20px 0}
+.arch-node{background:var(--panel);border:2px solid var(--border);border-radius:10px;padding:14px 18px;text-align:center;min-width:140px;position:relative}
+.arch-node h4{font-size:13px;color:var(--cyan);margin-bottom:4px}
+.arch-node p{font-size:10px;color:var(--dim)}
+.arch-node.cubesat{border-color:var(--cyan);box-shadow:0 0 15px rgba(0,212,255,.15)}
+.arch-node.ground{border-color:var(--green);box-shadow:0 0 15px rgba(0,255,136,.15)}
+.arch-node.sensor{border-color:var(--purple);box-shadow:0 0 12px rgba(168,85,247,.12)}
+.arch-node.pc{border-color:var(--orange);box-shadow:0 0 12px rgba(255,159,67,.12)}
+.arch-arrow{font-size:22px;color:var(--dim);padding:0 8px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.arch-arrow span{font-size:9px;max-width:80px;text-align:center;line-height:1.3}
+.arch-sensor-col{display:flex;flex-direction:column;gap:8px;margin-right:8px}
+/* packet frame visual */
+.pkt-frame{display:flex;flex-wrap:wrap;gap:2px;margin:10px 0}
+.pkt-field{border-radius:4px;padding:6px 4px;text-align:center;font-size:9px;font-weight:600;line-height:1.3;border:1px solid rgba(255,255,255,.1)}
+.pkt-field .f-name{display:block;font-size:8px;color:rgba(255,255,255,.7);margin-top:2px}
+/* tables */
+table.overview-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+table.overview-table th{background:#162040;color:var(--cyan);padding:8px 12px;text-align:left;border:1px solid var(--border)}
+table.overview-table td{padding:7px 12px;border:1px solid var(--border)}
+table.overview-table tr:nth-child(even){background:#0d1525}
+/* link budget bars */
+.lb-bar-wrap{display:flex;align-items:center;gap:8px;margin:4px 0}
+.lb-bar{height:16px;border-radius:3px;min-width:4px;transition:width .5s}
+.lb-bar-label{font-size:11px;white-space:nowrap;min-width:70px}
+.lb-bar-val{font-size:11px;font-family:'Courier New',monospace;min-width:60px;text-align:right}
+/* scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#0a0e17}
+::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#2a5080}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<div class="header">
+  <h1>🛰️ Smart <span>CubeSat</span> Communication Testbed</h1>
+  <span class="group">Group: 23BEC061 – 23BEC075</span>
+</div>
+
+<!-- ═══════════════════════════ TAB BAR ═══════════════════════════ -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab(0)">🛰️ Live ESP-NOW Mission Control Simulator</button>
+  <button class="tab-btn" onclick="switchTab(1)">🔌 Interactive Breadboard &amp; Circuit Schematic</button>
+  <button class="tab-btn" onclick="switchTab(2)">📋 Project Overview &amp; Viva Architecture</button>
+</div>
+
+<!-- ═══════════════════════════ TAB 1 ═══════════════════════════ -->
+<div class="tab-content active" id="tab0">
+  <div class="mission-control">
+    <!-- LEFT PANEL: CONTROLS -->
+    <div class="panel">
+      <div class="panel-title">🎛️ CubeSat Telemetry &amp; RF Controls</div>
+
+      <div class="slider-group">
+        <div class="slider-label"><span>📡 Distance (m)</span><span class="val" id="vDist">10</span></div>
+        <input type="range" id="sDistance" min="1" max="500" value="10" step="1">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span>📶 RF Interference / Noise</span><span class="val" id="vNoise">10%</span></div>
+        <input type="range" id="sNoise" min="0" max="100" value="10" step="1">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span>🌀 Tumble / Spin Rate (°/s)</span><span class="val" id="vTumble">5</span></div>
+        <input type="range" id="sTumble" min="0" max="50" value="5" step="1">
+      </div>
+
+      <div class="panel-title" style="margin-top:14px">🌡️ BME280 Anomalies</div>
+      <div class="slider-group">
+        <div class="slider-label"><span>Temperature Δ (°C)</span><span class="val" id="vTemp">0</span></div>
+        <input type="range" id="sTemp" min="-20" max="20" value="0" step="0.5">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span>Pressure Δ (hPa)</span><span class="val" id="vPres">0</span></div>
+        <input type="range" id="sPres" min="-50" max="50" value="0" step="1">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span>Humidity Δ (%RH)</span><span class="val" id="vHum">0</span></div>
+        <input type="range" id="sHum" min="-30" max="30" value="0" step="1">
+      </div>
+
+      <div class="panel-title" style="margin-top:14px">🔋 Battery (Voltage Divider)</div>
+      <div class="slider-group">
+        <div class="slider-label"><span>Battery V (3.0 – 4.2 V)</span><span class="val" id="vBat">3.70</span></div>
+        <input type="range" id="sBat" min="3.0" max="4.2" value="3.7" step="0.01">
+      </div>
+
+      <div style="margin-top:16px;padding:8px;background:#0c1a2a;border:1px solid var(--border);border-radius:6px;font-size:10px;line-height:1.5;color:var(--dim)">
+        <strong style="color:var(--cyan)">ADC Model:</strong><br>
+        V<sub>div</sub> = V<sub>bat</sub> / 2 (10k+10k)<br>
+        ADC = V<sub>div</sub> × 4095 / 3.3<br>
+        <span id="adcReadout" style="color:var(--green)">ADC: 2299 → 1.85V mid → 3.70V bat</span>
+      </div>
+    </div>
+
+    <!-- CENTER PANEL: 3D + CHARTS -->
+    <div class="center-panel">
+      <div class="three-container" id="threeContainer">
+        <div class="attitude-hud" id="attitudeHud">
+          ROLL  : 0.00°<br>PITCH : 0.00°<br>YAW   : 0.00°
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-box">
+          <h4>🌡️ BME280 — Temp / Humidity</h4>
+          <canvas id="chartEnv"></canvas>
+        </div>
+        <div class="chart-box">
+          <h4>🔋 Battery Voltage (ADC)</h4>
+          <canvas id="chartBat"></canvas>
+        </div>
+        <div class="chart-box">
+          <h4>📡 Link Quality — RSSI &amp; PDR</h4>
+          <canvas id="chartLink"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: PACKET INSPECTOR -->
+    <div class="panel right-panel">
+      <div class="panel-title">📟 ESP-NOW Packet Inspector</div>
+      <div class="stats-row">
+        <div class="stat-box stat-green"><div class="stat-val" id="statDelivered">0</div><div class="stat-lbl">Delivered</div></div>
+        <div class="stat-box stat-red"><div class="stat-val" id="statDropped">0</div><div class="stat-lbl">Dropped</div></div>
+        <div class="stat-box stat-cyan"><div class="stat-val" id="statRSSI">-36</div><div class="stat-lbl">RSSI dBm</div></div>
+        <div class="stat-box stat-orange"><div class="stat-val" id="statPDR">100%</div><div class="stat-lbl">PDR</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-sm active-btn" id="btnPause" onclick="togglePause()">⏸ Pause</button>
+        <button class="btn-sm" onclick="clearTerminal()">🗑 Clear</button>
+      </div>
+      <div class="terminal" id="terminal"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ TAB 2 ═══════════════════════════ -->
+<div class="tab-content" id="tab1" style="display:none">
+  <div class="circuit-tab">
+    <h2>🔌 Interactive Breadboard &amp; Circuit Schematic (Wokwi Style)</h2>
+    <div class="svg-container">
+      <svg viewBox="0 0 1240 680" xmlns="http://www.w3.org/2000/svg" id="circuitSVG">
+        <defs>
+          <marker id="arrowCyan" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#00d4ff"/>
+          </marker>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+
+        <!-- Background breadboard areas -->
+        <rect x="30" y="20" width="520" height="640" rx="12" fill="#0c1628" stroke="#1e3a5f" stroke-width="1"/>
+        <text x="290" y="50" text-anchor="middle" fill="#1e3a5f" font-size="12" font-weight="700">BREADBOARD — CUBESAT NODE</text>
+        <rect x="700" y="100" width="510" height="380" rx="12" fill="#0c1628" stroke="#1e3a5f" stroke-width="1"/>
+        <text x="955" y="130" text-anchor="middle" fill="#1e3a5f" font-size="12" font-weight="700">GROUND STATION</text>
+
+        <!-- ─── ESP32 #1 (CubeSat) ─── -->
+        <g class="comp-box" id="compESP1">
+          <rect x="200" y="120" width="170" height="380" rx="8" fill="#1a2744" stroke="#3b82f6" stroke-width="2"/>
+          <rect x="215" y="130" width="140" height="24" rx="4" fill="#3b82f6" opacity="0.2"/>
+          <text x="285" y="147" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="700">ESP32 #1</text>
+          <text x="285" y="163" text-anchor="middle" fill="#60a5fa" font-size="9">CubeSat Node</text>
+          <!-- Pin labels left side -->
+          <text x="208" y="200" text-anchor="end" fill="#94a3b8" font-size="9">3.3V</text>
+          <circle class="pin-dot" cx="215" cy="196" r="5" fill="#ef4444" data-pin="3V3"><title>3.3V Power Output</title></circle>
+          <text x="208" y="224" text-anchor="end" fill="#94a3b8" font-size="9">GND</text>
+          <circle class="pin-dot" cx="215" cy="220" r="5" fill="#333"><title>Ground</title></circle>
+          <text x="208" y="256" text-anchor="end" fill="#94a3b8" font-size="9">G21</text>
+          <circle class="pin-dot" cx="215" cy="252" r="5" fill="#4488ff" data-pin="GPIO21"><title>GPIO21 — I2C SDA</title></circle>
+          <text x="208" y="280" text-anchor="end" fill="#94a3b8" font-size="9">G22</text>
+          <circle class="pin-dot" cx="215" cy="276" r="5" fill="#f0c040" data-pin="GPIO22"><title>GPIO22 — I2C SCL</title></circle>
+          <!-- Pin labels right side -->
+          <text x="378" y="200" fill="#94a3b8" font-size="9">VIN</text>
+          <circle class="pin-dot" cx="363" cy="196" r="5" fill="#ef4444" data-pin="VIN"><title>VIN — 5V Input from Power Bank</title></circle>
+          <text x="378" y="224" fill="#94a3b8" font-size="9">GND</text>
+          <circle class="pin-dot" cx="363" cy="220" r="5" fill="#333"><title>Ground</title></circle>
+          <text x="378" y="316" fill="#94a3b8" font-size="9">G34</text>
+          <circle class="pin-dot" cx="363" cy="312" r="5" fill="#22c55e" data-pin="GPIO34"><title>GPIO34 — ADC1_CH6 (Battery Divider)</title></circle>
+          <!-- Antenna symbol -->
+          <line x1="285" y1="120" x2="285" y2="90" stroke="#3b82f6" stroke-width="2"/>
+          <path d="M270 90 L285 70 L300 90" fill="none" stroke="#3b82f6" stroke-width="2"/>
+          <text x="285" y="84" text-anchor="middle" fill="#3b82f6" font-size="8">2.4GHz</text>
+        </g>
+
+        <!-- ─── BME280 ─── -->
+        <g class="comp-box" id="compBME">
+          <rect x="50" y="140" width="120" height="90" rx="6" fill="#1a1740" stroke="#a855f7" stroke-width="2"/>
+          <text x="110" y="162" text-anchor="middle" fill="#a855f7" font-size="11" font-weight="700">BME280</text>
+          <text x="110" y="178" text-anchor="middle" fill="#c084fc" font-size="8">Temp / Press / Hum</text>
+          <text x="110" y="194" text-anchor="middle" fill="#7c3aed" font-size="8">I2C Addr: 0x76</text>
+          <!-- Pins right side -->
+          <circle class="pin-dot" cx="164" cy="158" r="4" fill="#4488ff" data-pin="BME_SDA"><title>BME280 SDA</title></circle>
+          <text x="157" y="161" text-anchor="end" fill="#94a3b8" font-size="8">SDA</text>
+          <circle class="pin-dot" cx="164" cy="174" r="4" fill="#f0c040" data-pin="BME_SCL"><title>BME280 SCL</title></circle>
+          <text x="157" y="177" text-anchor="end" fill="#94a3b8" font-size="8">SCL</text>
+          <circle class="pin-dot" cx="164" cy="190" r="4" fill="#ef4444" data-pin="BME_VCC"><title>BME280 VCC → 3.3V</title></circle>
+          <text x="157" y="193" text-anchor="end" fill="#94a3b8" font-size="8">VCC</text>
+          <circle class="pin-dot" cx="164" cy="206" r="4" fill="#555" data-pin="BME_GND"><title>BME280 GND</title></circle>
+          <text x="157" y="209" text-anchor="end" fill="#94a3b8" font-size="8">GND</text>
+        </g>
+
+        <!-- ─── MPU6050 ─── -->
+        <g class="comp-box" id="compMPU">
+          <rect x="50" y="270" width="120" height="90" rx="6" fill="#1a2010" stroke="#f59e0b" stroke-width="2"/>
+          <text x="110" y="292" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="700">MPU6050</text>
+          <text x="110" y="308" text-anchor="middle" fill="#fbbf24" font-size="8">6-Axis IMU</text>
+          <text x="110" y="324" text-anchor="middle" fill="#d97706" font-size="8">I2C Addr: 0x68</text>
+          <circle class="pin-dot" cx="164" cy="288" r="4" fill="#4488ff" data-pin="MPU_SDA"><title>MPU6050 SDA</title></circle>
+          <text x="157" y="291" text-anchor="end" fill="#94a3b8" font-size="8">SDA</text>
+          <circle class="pin-dot" cx="164" cy="304" r="4" fill="#f0c040" data-pin="MPU_SCL"><title>MPU6050 SCL</title></circle>
+          <text x="157" y="307" text-anchor="end" fill="#94a3b8" font-size="8">SCL</text>
+          <circle class="pin-dot" cx="164" cy="320" r="4" fill="#ef4444" data-pin="MPU_VCC"><title>MPU6050 VCC → 3.3V</title></circle>
+          <text x="157" y="323" text-anchor="end" fill="#94a3b8" font-size="8">VCC</text>
+          <circle class="pin-dot" cx="164" cy="336" r="4" fill="#555" data-pin="MPU_GND"><title>MPU6050 GND</title></circle>
+          <text x="157" y="339" text-anchor="end" fill="#94a3b8" font-size="8">GND</text>
+        </g>
+
+        <!-- ─── Voltage Divider ─── -->
+        <g class="comp-box" id="compDiv">
+          <rect x="80" y="420" width="130" height="100" rx="6" fill="#0f1a10" stroke="#22c55e" stroke-width="2"/>
+          <text x="145" y="442" text-anchor="middle" fill="#22c55e" font-size="10" font-weight="700">Voltage Divider</text>
+          <!-- R1 -->
+          <rect x="100" y="455" width="50" height="14" rx="3" fill="#2a4030" stroke="#4ade80" stroke-width="1"/>
+          <text x="125" y="466" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="700">10kΩ R1</text>
+          <!-- connection -->
+          <line x1="125" y1="469" x2="125" y2="482" stroke="#4ade80" stroke-width="1.5"/>
+          <circle cx="125" cy="478" r="3" fill="#22c55e"/>
+          <text x="138" y="481" fill="#86efac" font-size="7">MID → G34</text>
+          <!-- R2 -->
+          <rect x="100" y="485" width="50" height="14" rx="3" fill="#2a4030" stroke="#4ade80" stroke-width="1"/>
+          <text x="125" y="496" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="700">10kΩ R2</text>
+          <!-- labels -->
+          <text x="95" y="461" text-anchor="end" fill="#fbbf24" font-size="7">V_BAT+</text>
+          <text x="95" y="497" text-anchor="end" fill="#6b7280" font-size="7">GND</text>
+        </g>
+
+        <!-- ─── Power Bank ─── -->
+        <g class="comp-box" id="compPwr">
+          <rect x="80" y="560" width="130" height="60" rx="6" fill="#1a1800" stroke="#eab308" stroke-width="2"/>
+          <text x="145" y="582" text-anchor="middle" fill="#eab308" font-size="11" font-weight="700">🔋 Power Bank</text>
+          <text x="145" y="600" text-anchor="middle" fill="#fde047" font-size="9">5V / 1A Output</text>
+          <circle class="pin-dot" cx="204" cy="576" r="4" fill="#ef4444"><title>Power Bank 5V+</title></circle>
+          <text x="212" y="579" fill="#94a3b8" font-size="8">5V</text>
+          <circle class="pin-dot" cx="204" cy="598" r="4" fill="#555"><title>Power Bank GND</title></circle>
+          <text x="212" y="601" fill="#94a3b8" font-size="8">GND</text>
+        </g>
+
+        <!-- ─── WIRES ─── -->
+        <!-- BME280 SDA → ESP32 GPIO21 (blue) -->
+        <path class="wire" d="M168 158 L190 158 L190 252 L215 252" stroke="#4488ff" stroke-width="2.5" fill="none"/>
+        <!-- BME280 SCL → ESP32 GPIO22 (yellow) -->
+        <path class="wire" d="M168 174 L185 174 L185 276 L215 276" stroke="#f0c040" stroke-width="2.5" fill="none"/>
+        <!-- BME280 VCC → ESP32 3.3V (red) -->
+        <path class="wire" d="M168 190 L180 190 L180 196 L215 196" stroke="#ef4444" stroke-width="2" fill="none"/>
+        <!-- BME280 GND → ESP32 GND (black) -->
+        <path class="wire" d="M168 206 L180 206 L180 220 L215 220" stroke="#555" stroke-width="2" fill="none" stroke-dasharray="4,2"/>
+        <!-- MPU6050 SDA → ESP32 GPIO21 (blue, shared) -->
+        <path class="wire" d="M168 288 L194 288 L194 252 L215 252" stroke="#4488ff" stroke-width="2.5" fill="none" stroke-dasharray="8,3"/>
+        <!-- MPU6050 SCL → ESP32 GPIO22 (yellow, shared) -->
+        <path class="wire" d="M168 304 L189 304 L189 276 L215 276" stroke="#f0c040" stroke-width="2.5" fill="none" stroke-dasharray="8,3"/>
+        <!-- MPU6050 VCC → 3.3V rail -->
+        <path class="wire" d="M168 320 L175 320 L175 196 L180 196" stroke="#ef4444" stroke-width="2" fill="none"/>
+        <!-- MPU6050 GND → GND rail -->
+        <path class="wire" d="M168 336 L175 336 L175 220 L180 220" stroke="#555" stroke-width="2" fill="none" stroke-dasharray="4,2"/>
+        <!-- Voltage Divider MID → GPIO34 (green) -->
+        <path class="wire" d="M210 478 L363 478 L363 312" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+        <!-- Power Bank 5V → ESP32 VIN (red, thick) -->
+        <path class="wire" d="M208 576 L430 576 L430 196 L363 196" stroke="#ef4444" stroke-width="3" fill="none"/>
+        <!-- Power Bank GND → ESP32 GND -->
+        <path class="wire" d="M208 598 L440 598 L440 220 L363 220" stroke="#555" stroke-width="2" fill="none" stroke-dasharray="4,2"/>
+        <!-- Power Bank V → divider top -->
+        <path class="wire" d="M100 555 L100 455" stroke="#fbbf24" stroke-width="2" fill="none"/>
+        <!-- Divider bottom → GND -->
+        <path class="wire" d="M125 499 L125 520 L70 520 L70 220 L180 220" stroke="#555" stroke-width="1.5" fill="none" stroke-dasharray="4,2"/>
+
+        <!-- ─── ESP32 #2 (Ground Station) ─── -->
+        <g class="comp-box" id="compESP2">
+          <rect x="760" y="200" width="170" height="200" rx="8" fill="#0f2418" stroke="#22c55e" stroke-width="2"/>
+          <rect x="775" y="210" width="140" height="24" rx="4" fill="#22c55e" opacity="0.15"/>
+          <text x="845" y="227" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="700">ESP32 #2</text>
+          <text x="845" y="243" text-anchor="middle" fill="#4ade80" font-size="9">Ground Station</text>
+          <text x="845" y="270" text-anchor="middle" fill="#86efac" font-size="9">Receives ESP-NOW</text>
+          <text x="845" y="285" text-anchor="middle" fill="#86efac" font-size="9">packets, prints JSON</text>
+          <text x="845" y="300" text-anchor="middle" fill="#86efac" font-size="9">to Serial @ 115200</text>
+          <!-- USB port -->
+          <rect x="810" y="370" width="70" height="20" rx="4" fill="#374151" stroke="#6b7280" stroke-width="1"/>
+          <text x="845" y="384" text-anchor="middle" fill="#9ca3af" font-size="8">USB-C</text>
+          <!-- Antenna -->
+          <line x1="845" y1="200" x2="845" y2="170" stroke="#22c55e" stroke-width="2"/>
+          <path d="M830 170 L845 150 L860 170" fill="none" stroke="#22c55e" stroke-width="2"/>
+        </g>
+
+        <!-- ─── PC / Laptop ─── -->
+        <g class="comp-box" id="compPC">
+          <rect x="1020" y="250" width="140" height="100" rx="8" fill="#1c1917" stroke="#f97316" stroke-width="2"/>
+          <rect x="1040" y="265" width="100" height="60" rx="4" fill="#0f172a" stroke="#475569" stroke-width="1"/>
+          <text x="1090" y="300" text-anchor="middle" fill="#f97316" font-size="11" font-weight="700">💻 PC</text>
+          <text x="1090" y="340" text-anchor="middle" fill="#fb923c" font-size="8">Serial Monitor</text>
+        </g>
+        <!-- USB cable ESP32 #2 → PC -->
+        <path class="wire" d="M880 380 L950 380 L950 300 L1020 300" stroke="#6b7280" stroke-width="3" fill="none"/>
+        <text x="950" y="370" text-anchor="middle" fill="#9ca3af" font-size="8">USB-C Cable</text>
+
+        <!-- ─── Wireless ESP-NOW Link ─── -->
+        <g filter="url(#glow)">
+          <line x1="310" y1="82" x2="830" y2="155" stroke="#00d4ff" stroke-width="2" stroke-dasharray="12,6" opacity="0.8" marker-end="url(#arrowCyan)">
+            <animate attributeName="stroke-dashoffset" values="0;-36" dur="1.5s" repeatCount="indefinite"/>
+          </line>
+          <text x="570" y="98" text-anchor="middle" fill="#00d4ff" font-size="13" font-weight="700">⚡ ESP-NOW 2.4 GHz Link</text>
+          <text x="570" y="114" text-anchor="middle" fill="#67e8f9" font-size="9">Peer-to-peer • Max 250 bytes/pkt • &lt; 5 ms latency</text>
+        </g>
+
+        <!-- I2C bus label -->
+        <rect x="178" y="240" width="34" height="48" rx="4" fill="#0c1628" stroke="#4488ff" stroke-width="1" opacity="0.7"/>
+        <text x="195" y="256" text-anchor="middle" fill="#4488ff" font-size="7" font-weight="700">I2C</text>
+        <text x="195" y="268" text-anchor="middle" fill="#4488ff" font-size="7">SDA</text>
+        <text x="195" y="280" text-anchor="middle" fill="#f0c040" font-size="7">SCL</text>
+
+        <!-- Wire legend -->
+        <g transform="translate(720,500)">
+          <text x="0" y="0" fill="#94a3b8" font-size="10" font-weight="700">Wire Legend:</text>
+          <line x1="0" y1="14" x2="30" y2="14" stroke="#4488ff" stroke-width="3"/><text x="36" y="18" fill="#94a3b8" font-size="9">SDA (GPIO 21)</text>
+          <line x1="0" y1="30" x2="30" y2="30" stroke="#f0c040" stroke-width="3"/><text x="36" y="34" fill="#94a3b8" font-size="9">SCL (GPIO 22)</text>
+          <line x1="0" y1="46" x2="30" y2="46" stroke="#ef4444" stroke-width="3"/><text x="36" y="50" fill="#94a3b8" font-size="9">VCC / 5V Power</text>
+          <line x1="0" y1="62" x2="30" y2="62" stroke="#555" stroke-width="2" stroke-dasharray="4,2"/><text x="36" y="66" fill="#94a3b8" font-size="9">GND</text>
+          <line x1="0" y1="78" x2="30" y2="78" stroke="#22c55e" stroke-width="3"/><text x="36" y="82" fill="#94a3b8" font-size="9">ADC (GPIO 34)</text>
+          <line x1="0" y1="94" x2="30" y2="94" stroke="#00d4ff" stroke-width="2" stroke-dasharray="12,6"/><text x="36" y="98" fill="#94a3b8" font-size="9">ESP-NOW Wireless</text>
+          <line x1="0" y1="110" x2="30" y2="110" stroke="#6b7280" stroke-width="3"/><text x="36" y="114" fill="#94a3b8" font-size="9">USB-C Data</text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Pinout Table -->
+    <div class="pinout-section">
+      <h3>📌 Complete Pin Connection Table</h3>
+      <table class="pin-table">
+        <thead><tr><th>Component</th><th>Pin</th><th>ESP32 GPIO</th><th>Wire</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr data-hl="GPIO21"><td>BME280</td><td>SDA</td><td>GPIO 21</td><td><span class="wire-swatch" style="background:#4488ff"></span>Blue</td><td>I2C Data (shared bus)</td></tr>
+          <tr data-hl="GPIO22"><td>BME280</td><td>SCL</td><td>GPIO 22</td><td><span class="wire-swatch" style="background:#f0c040"></span>Yellow</td><td>I2C Clock (shared bus)</td></tr>
+          <tr><td>BME280</td><td>VCC</td><td>3.3V</td><td><span class="wire-swatch" style="background:#ef4444"></span>Red</td><td>3.3V power rail</td></tr>
+          <tr><td>BME280</td><td>GND</td><td>GND</td><td><span class="wire-swatch" style="background:#555"></span>Black</td><td>Common ground</td></tr>
+          <tr data-hl="GPIO21"><td>MPU6050</td><td>SDA</td><td>GPIO 21</td><td><span class="wire-swatch" style="background:#4488ff"></span>Blue</td><td>Shared with BME280</td></tr>
+          <tr data-hl="GPIO22"><td>MPU6050</td><td>SCL</td><td>GPIO 22</td><td><span class="wire-swatch" style="background:#f0c040"></span>Yellow</td><td>Shared with BME280</td></tr>
+          <tr><td>MPU6050</td><td>VCC</td><td>3.3V</td><td><span class="wire-swatch" style="background:#ef4444"></span>Red</td><td>3.3V power rail</td></tr>
+          <tr><td>MPU6050</td><td>GND</td><td>GND</td><td><span class="wire-swatch" style="background:#555"></span>Black</td><td>Common ground</td></tr>
+          <tr data-hl="GPIO34"><td>V-Divider</td><td>Mid-point</td><td>GPIO 34 (ADC)</td><td><span class="wire-swatch" style="background:#22c55e"></span>Green</td><td>V_bat / 2 (10k + 10k)</td></tr>
+          <tr><td>Power Bank</td><td>5V</td><td>VIN</td><td><span class="wire-swatch" style="background:#ef4444"></span>Red</td><td>5V supply input</td></tr>
+          <tr><td>Power Bank</td><td>GND</td><td>GND</td><td><span class="wire-swatch" style="background:#555"></span>Black</td><td>Common ground</td></tr>
+          <tr><td>ESP32 #2</td><td>USB-C</td><td>—</td><td><span class="wire-swatch" style="background:#6b7280"></span>Gray</td><td>Serial to PC @ 115200</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ TAB 3 ═══════════════════════════ -->
+<div class="tab-content" id="tab2" style="display:none">
+  <div class="overview-tab">
+    <!-- ARCHITECTURE -->
+    <div class="section">
+      <h2>🏗️ System Architecture — Block Diagram</h2>
+      <div class="arch-diagram">
+        <div class="arch-sensor-col">
+          <div class="arch-node sensor">
+            <h4>🌡️ BME280</h4>
+            <p>Temp / Press / Humid<br>I2C 0x76</p>
+          </div>
+          <div class="arch-node sensor">
+            <h4>🔄 MPU6050</h4>
+            <p>Accel + Gyro<br>I2C 0x68</p>
+          </div>
+          <div class="arch-node sensor">
+            <h4>🔋 V-Divider</h4>
+            <p>10k + 10k Ohm<br>ADC GPIO34</p>
+          </div>
+        </div>
+        <div class="arch-arrow">→<span>I2C Bus<br>GPIO 21/22</span></div>
+        <div class="arch-node cubesat">
+          <h4>📡 ESP32 #1</h4>
+          <p>CubeSat Node<br>Tx @ 2 Hz<br>+20 dBm</p>
+        </div>
+        <div class="arch-arrow">
+          <span style="font-size:20px">⚡📡⚡</span>
+          <span>ESP-NOW<br>2.4 GHz P2P<br>≤ 250 B/pkt</span>
+        </div>
+        <div class="arch-node ground">
+          <h4>📡 ESP32 #2</h4>
+          <p>Ground Station<br>Rx Callback<br>−97 dBm sens.</p>
+        </div>
+        <div class="arch-arrow">→<span>USB-C<br>Serial<br>115200 baud</span></div>
+        <div class="arch-node pc">
+          <h4>💻 PC</h4>
+          <p>JSON Parser<br>Serial Monitor<br>Web Dashboard</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACKET FRAME -->
+    <div class="section">
+      <h2>📦 ESP-NOW Packet Frame Structure (71 bytes)</h2>
+      <div class="pkt-frame" id="pktFrame">
+        <div class="pkt-field" style="background:#1e40af;flex:4">uint32<span class="f-name">packetID [4B]</span></div>
+        <div class="pkt-field" style="background:#1e40af;flex:4">uint32<span class="f-name">timestamp [4B]</span></div>
+        <div class="pkt-field" style="background:#7c3aed;flex:4">float<span class="f-name">temp [4B]</span></div>
+        <div class="pkt-field" style="background:#7c3aed;flex:4">float<span class="f-name">press [4B]</span></div>
+        <div class="pkt-field" style="background:#7c3aed;flex:4">float<span class="f-name">humid [4B]</span></div>
+        <div class="pkt-field" style="background:#7c3aed;flex:4">float<span class="f-name">alt [4B]</span></div>
+        <div class="pkt-field" style="background:#b45309;flex:4">float<span class="f-name">accelX [4B]</span></div>
+        <div class="pkt-field" style="background:#b45309;flex:4">float<span class="f-name">accelY [4B]</span></div>
+        <div class="pkt-field" style="background:#b45309;flex:4">float<span class="f-name">accelZ [4B]</span></div>
+        <div class="pkt-field" style="background:#92400e;flex:4">float<span class="f-name">gyroX [4B]</span></div>
+        <div class="pkt-field" style="background:#92400e;flex:4">float<span class="f-name">gyroY [4B]</span></div>
+        <div class="pkt-field" style="background:#92400e;flex:4">float<span class="f-name">gyroZ [4B]</span></div>
+        <div class="pkt-field" style="background:#065f46;flex:4">float<span class="f-name">roll [4B]</span></div>
+        <div class="pkt-field" style="background:#065f46;flex:4">float<span class="f-name">pitch [4B]</span></div>
+        <div class="pkt-field" style="background:#065f46;flex:4">float<span class="f-name">yaw [4B]</span></div>
+        <div class="pkt-field" style="background:#166534;flex:4">float<span class="f-name">batV [4B]</span></div>
+        <div class="pkt-field" style="background:#166534;flex:2">u16<span class="f-name">ADC [2B]</span></div>
+        <div class="pkt-field" style="background:#374151;flex:1">u8<span class="f-name">stat [1B]</span></div>
+      </div>
+      <table class="overview-table">
+        <thead><tr><th>Offset</th><th>Size</th><th>Type</th><th>Field</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>4</td><td>uint32_t</td><td>packetID</td><td>Sequential packet counter</td></tr>
+          <tr><td>4</td><td>4</td><td>uint32_t</td><td>timestamp</td><td>millis() on CubeSat</td></tr>
+          <tr><td>8</td><td>4</td><td>float</td><td>temperature</td><td>BME280 °C</td></tr>
+          <tr><td>12</td><td>4</td><td>float</td><td>pressure</td><td>BME280 hPa</td></tr>
+          <tr><td>16</td><td>4</td><td>float</td><td>humidity</td><td>BME280 %RH</td></tr>
+          <tr><td>20</td><td>4</td><td>float</td><td>altitude</td><td>BME280 computed m</td></tr>
+          <tr><td>24</td><td>12</td><td>float×3</td><td>accelXYZ</td><td>MPU6050 m/s²</td></tr>
+          <tr><td>36</td><td>12</td><td>float×3</td><td>gyroXYZ</td><td>MPU6050 rad/s</td></tr>
+          <tr><td>48</td><td>12</td><td>float×3</td><td>roll/pitch/yaw</td><td>Computed degrees</td></tr>
+          <tr><td>60</td><td>4</td><td>float</td><td>batteryVoltage</td><td>V (divider × 2)</td></tr>
+          <tr><td>64</td><td>2</td><td>uint16_t</td><td>batteryADC</td><td>Raw 12-bit ADC</td></tr>
+          <tr><td>66</td><td>1</td><td>uint8_t</td><td>sensorStatus</td><td>Bit flags: b0=BME, b1=MPU</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:8px;font-size:12px;color:var(--dim)">Total payload: <strong style="color:var(--green)">71 bytes</strong> out of <strong>250 byte</strong> ESP-NOW maximum.</p>
+    </div>
+
+    <!-- LINK BUDGET -->
+    <div class="section">
+      <h2>📊 Link Budget Analysis (2.4 GHz ESP-NOW)</h2>
+      <h3>Parameters</h3>
+      <table class="overview-table" style="max-width:500px">
+        <tbody>
+          <tr><td>Tx Power (ESP32 max)</td><td style="color:var(--green)">+20 dBm</td></tr>
+          <tr><td>Tx Antenna Gain (PCB)</td><td>+2 dBi</td></tr>
+          <tr><td>Rx Antenna Gain (PCB)</td><td>+2 dBi</td></tr>
+          <tr><td>Frequency</td><td>2.4 GHz</td></tr>
+          <tr><td>Rx Sensitivity (ESP32)</td><td style="color:var(--orange)">−97 dBm</td></tr>
+        </tbody>
+      </table>
+      <h3>Range vs. Margin</h3>
+      <p style="font-size:11px;color:var(--dim);margin-bottom:8px">FSPL (dB) = 40 + 20·log₁₀(d<sub>meters</sub>) &nbsp;|&nbsp; RSSI = 24 − FSPL &nbsp;|&nbsp; Margin = RSSI − (−97)</p>
+      <div id="linkBudgetBars"></div>
+
+      <h3 style="margin-top:20px">PDR Sigmoid Model</h3>
+      <p style="font-size:12px;color:var(--dim)">PDR(%) = 100 / (1 + e<sup>0.2 × (−75 − RSSI)</sup>)  &nbsp;→&nbsp; 50% at −75 dBm, ~99% above −50 dBm, ~5% below −90 dBm</p>
+    </div>
+
+    <!-- BOM -->
+    <div class="section">
+      <h2>🛒 Bill of Materials (BOM)</h2>
+      <table class="overview-table">
+        <thead><tr><th>#</th><th>Component</th><th>Qty</th><th>Specification</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>ESP32 DevKit V1</td><td>2</td><td>240 MHz, Wi-Fi+BT, 520 KB SRAM</td><td>CubeSat + Ground Station</td></tr>
+          <tr><td>2</td><td>BME280 Breakout</td><td>1</td><td>I2C, ±1°C / ±1hPa / ±3%RH</td><td>Environmental telemetry</td></tr>
+          <tr><td>3</td><td>MPU6050 Breakout</td><td>1</td><td>I2C, 3-axis accel + gyro</td><td>Attitude determination</td></tr>
+          <tr><td>4</td><td>10 kΩ Resistor</td><td>2</td><td>¼W, ±5%</td><td>Battery voltage divider</td></tr>
+          <tr><td>5</td><td>Breadboard (830-pt)</td><td>2</td><td>Full size</td><td>Prototyping</td></tr>
+          <tr><td>6</td><td>Jumper Wires</td><td>~15</td><td>M-M / M-F</td><td>Connections</td></tr>
+          <tr><td>7</td><td>USB-C Data Cable</td><td>2</td><td>USB 2.0+</td><td>Programming &amp; power</td></tr>
+          <tr><td>8</td><td>Power Bank</td><td>1</td><td>5V / 1A output</td><td>CubeSat power supply</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="section" style="text-align:center;padding:20px 0;border-top:1px solid var(--border)">
+      <p style="color:var(--cyan);font-size:14px;font-weight:700">🛰️ Smart CubeSat Communication Testbed</p>
+      <p style="color:var(--dim);font-size:12px">Group: 23BEC061 – 23BEC075 &nbsp;|&nbsp; Electronics &amp; Communication Engineering</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════ JAVASCRIPT ═══════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<script>
+// ═══════════════════════════ TAB SWITCHING ═══════════════════════
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabPanels = document.querySelectorAll('.tab-content');
+
+function switchTab(idx) {
+  tabBtns.forEach((b, i) => { b.classList.toggle('active', i === idx); });
+  tabPanels.forEach((p, i) => {
+    const show = i === idx;
+    p.style.display = show ? 'flex' : 'none';
+    p.classList.toggle('active', show);
+  });
+  if (idx === 0) {
+    setTimeout(() => {
+      resizeThree();
+      charts.forEach(c => c.resize());
+    }, 50);
+  }
+}
+
+// ═══════════════════════════ SIMULATION STATE ═══════════════════
+const S = {
+  distance: 10, noise: 10, tumbleRate: 5,
+  tempAnom: 0, presAnom: 0, humAnom: 0,
+  battV: 3.7,
+  pktID: 0, delivered: 0, dropped: 0,
+  paused: false, time: 0,
+  txMAC: 'A4:CF:12:8B:3E:F0', rxMAC: 'A4:CF:12:8B:3E:F1',
+  // computed per tick
+  roll: 0, pitch: 0, yaw: 0,
+  temp: 25, pres: 1013.25, hum: 50,
+  rssi: -36, pdr: 100
+};
+
+// ═══════════════════════════ SLIDER BINDINGS ═══════════════════
+function bindSlider(id, prop, valId, fmt) {
+  const el = document.getElementById(id);
+  const vl = document.getElementById(valId);
+  el.addEventListener('input', () => { S[prop] = parseFloat(el.value); vl.textContent = fmt ? fmt(S[prop]) : S[prop]; });
+}
+bindSlider('sDistance', 'distance', 'vDist');
+bindSlider('sNoise',   'noise',    'vNoise', v => v + '%');
+bindSlider('sTumble',  'tumbleRate','vTumble');
+bindSlider('sTemp',    'tempAnom',  'vTemp');
+bindSlider('sPres',    'presAnom',  'vPres');
+bindSlider('sHum',     'humAnom',   'vHum');
+bindSlider('sBat',     'battV',     'vBat', v => v.toFixed(2));
+
+// ═══════════════════════════ UTILITIES ═══════════════════════════
+function gaussian() { let u=0,v=0; while(!u) u=Math.random(); v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+function clamp(x,lo,hi) { return Math.max(lo,Math.min(hi,x)); }
+function ts() { return new Date().toLocaleTimeString('en-GB',{hour12:false})+'.'+String(Date.now()%1000).padStart(3,'0'); }
+
+// ═══════════════════════════ RF MODEL ═══════════════════════════
+function calcRSSI(dist, noisePct) {
+  const fspl = 40 + 20 * Math.log10(Math.max(dist, 0.5));
+  let rssi = 20 + 4 - fspl - (noisePct / 100) * 20;
+  rssi += gaussian() * 2;     // fading jitter
+  return clamp(rssi, -100, -10);
+}
+function calcPDR(rssi) {
+  return clamp(100 / (1 + Math.exp(0.2 * (-75 - rssi))), 0, 100);
+}
+
+// ═══════════════════════════ THREE.JS ═══════════════════════════
+let scene, camera, renderer, cubesat, stars;
+const container = document.getElementById('threeContainer');
+
+function initThree() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x060a12);
+
+  camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 1000);
+  camera.position.set(3.5, 2.5, 4);
+  camera.lookAt(0, 0, 0);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer.domElement);
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0x404060, 0.6));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.0);
+  dl.position.set(5, 8, 5);
+  scene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0x4488ff, 0.3);
+  dl2.position.set(-3, -2, -4);
+  scene.add(dl2);
+
+  // CubeSat body
+  cubesat = new THREE.Group();
+  const bodyMat = new THREE.MeshPhongMaterial({ color: 0xb8b8c0, specular: 0x444444, shininess: 60 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), bodyMat);
+  cubesat.add(body);
+
+  // Gold foil faces (top/bottom)
+  const foilMat = new THREE.MeshPhongMaterial({ color: 0xd4a84b, specular: 0x887733, shininess: 80 });
+  const topFoil = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.95), foilMat);
+  topFoil.position.y = 0.501; topFoil.rotation.x = -Math.PI/2;
+  cubesat.add(topFoil);
+  const btmFoil = topFoil.clone(); btmFoil.position.y = -0.501; btmFoil.rotation.x = Math.PI/2;
+  cubesat.add(btmFoil);
+
+  // Solar panels
+  const panelMat = new THREE.MeshPhongMaterial({ color: 0x0a1a4a, specular: 0x223366, shininess: 100 });
+  const panelGeo = new THREE.BoxGeometry(1.8, 0.04, 0.7);
+  const lp = new THREE.Mesh(panelGeo, panelMat);
+  lp.position.set(-1.4, 0, 0); cubesat.add(lp);
+  const rp = new THREE.Mesh(panelGeo, panelMat);
+  rp.position.set(1.4, 0, 0); cubesat.add(rp);
+  // Solar cell lines
+  const lineMat = new THREE.MeshBasicMaterial({ color: 0x223355 });
+  for (let i = -3; i <= 3; i++) {
+    const lg = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.05, 0.68), lineMat);
+    lg.position.set(-1.4 + i * 0.22, 0, 0); cubesat.add(lg);
+    const rg = lg.clone(); rg.position.set(1.4 + i * 0.22, 0, 0); cubesat.add(rg);
+  }
+
+  // Antenna
+  const antMat = new THREE.MeshPhongMaterial({ color: 0xcc3333 });
+  const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8, 8), antMat);
+  ant.position.set(0, 0.9, 0); cubesat.add(ant);
+  const antTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), antMat);
+  antTip.position.set(0, 1.3, 0); cubesat.add(antTip);
+
+  scene.add(cubesat);
+
+  // Stars
+  const starsGeo = new THREE.BufferGeometry();
+  const pos = [];
+  for (let i = 0; i < 2000; i++) {
+    pos.push((Math.random()-0.5)*300, (Math.random()-0.5)*300, (Math.random()-0.5)*300);
+  }
+  starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  stars = new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.4 }));
+  scene.add(stars);
+
+  animateThree();
+}
+
+function resizeThree() {
+  if (!renderer) return;
+  const w = container.clientWidth, h = container.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+
+function animateThree() {
+  requestAnimationFrame(animateThree);
+  if (cubesat) {
+    cubesat.rotation.x = S.roll  * Math.PI / 180;
+    cubesat.rotation.z = S.pitch * Math.PI / 180;
+    cubesat.rotation.y = S.yaw   * Math.PI / 180;
+  }
+  if (stars) stars.rotation.y += 0.0001;
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => { resizeThree(); charts.forEach(c=>c.resize()); });
+
+// ═══════════════════════════ CHART.JS ═══════════════════════════
+const MAX_PTS = 60;
+const chartColors = {
+  temp: '#ef4444', hum: '#3b82f6', pres: '#a855f7',
+  bat: '#22c55e', rssi: '#f59e0b', pdr: '#00d4ff'
+};
+
+function makeChart(canvasId, datasets, yAxes) {
+  const canvas = document.getElementById(canvasId);
+  const parent = canvas.parentElement;
+  // Ensure parent has a measurable height for Chart.js
+  if (parent.clientHeight < 50) {
+    parent.style.minHeight = '150px';
+  }
+  const ctx = canvas.getContext('2d');
+  const scales = {};
+  yAxes.forEach(a => { scales[a.id] = { type:'linear', position:a.pos, title:{display:true,text:a.label,color:'#6b7a90',font:{size:9}}, ticks:{color:'#6b7a90',font:{size:9}}, grid:{color:'#1e3a5f33'}, min:a.min, max:a.max }; });
+  scales.x = { display: false };
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: datasets.map(d => ({
+      label: d.label, data: [], borderColor: d.color, backgroundColor: d.color+'22',
+      borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: d.fill||false, yAxisID: d.axis||'y'
+    }))},
+    options: { responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { labels: { color:'#8892a0', font:{size:9}, boxWidth:10 }}},
+      scales }
+  });
+}
+
+const chartEnv  = makeChart('chartEnv',
+  [{label:'Temp °C',color:chartColors.temp,axis:'y'},{label:'Humidity %',color:chartColors.hum,axis:'y2'}],
+  [{id:'y',pos:'left',label:'°C',min:-10,max:60},{id:'y2',pos:'right',label:'%RH',min:0,max:100}]
+);
+const chartBat  = makeChart('chartBat',
+  [{label:'Voltage V',color:chartColors.bat,fill:true}],
+  [{id:'y',pos:'left',label:'V',min:2.5,max:4.5}]
+);
+const chartLink = makeChart('chartLink',
+  [{label:'RSSI dBm',color:chartColors.rssi,axis:'y'},{label:'PDR %',color:chartColors.pdr,axis:'y2'}],
+  [{id:'y',pos:'left',label:'dBm',min:-100,max:-10},{id:'y2',pos:'right',label:'%',min:0,max:110}]
+);
+const charts = [chartEnv, chartBat, chartLink];
+
+function pushChart(chart, label, ...vals) {
+  chart.data.labels.push(label);
+  vals.forEach((v, i) => chart.data.datasets[i].data.push(v));
+  if (chart.data.labels.length > MAX_PTS) {
+    chart.data.labels.shift();
+    chart.data.datasets.forEach(ds => ds.data.shift());
+  }
+  chart.update('none');
+}
+
+// ═══════════════════════════ TERMINAL ═══════════════════════════
+const termEl = document.getElementById('terminal');
+function logTerm(html) {
+  termEl.innerHTML += html + '\n';
+  if (termEl.children.length > 300) {
+    // trim oldest
+    while (termEl.childNodes.length > 200) termEl.removeChild(termEl.firstChild);
+  }
+  termEl.scrollTop = termEl.scrollHeight;
+}
+function clearTerminal() { termEl.innerHTML = ''; }
+
+// ═══════════════════════════ PAUSE ═══════════════════════════════
+function togglePause() {
+  S.paused = !S.paused;
+  const btn = document.getElementById('btnPause');
+  btn.textContent = S.paused ? '▶ Resume' : '⏸ Pause';
+  btn.classList.toggle('active-btn', !S.paused);
+}
+
+// ═══════════════════════════ MAIN SIM LOOP ═══════════════════════
+function simTick() {
+  if (S.paused) return;
+  S.time += 0.5;
+  S.pktID++;
+
+  // ---- Attitude from tumble rate ----
+  const t = S.time;
+  const r = S.tumbleRate;
+  S.roll  = r * 4 * Math.sin(t * 0.7);
+  S.pitch = r * 3 * Math.sin(t * 0.5 + 1);
+  S.yaw   = (S.yaw + r * 0.5) % 360;
+
+  // ---- BME280 Simulation ----
+  S.temp = 25 + S.tempAnom + gaussian() * 0.3;
+  S.pres = 1013.25 + S.presAnom + gaussian() * 0.5;
+  S.hum  = clamp(50 + S.humAnom + gaussian() * 1, 0, 100);
+
+  // ---- Battery ADC ----
+  const vDiv = S.battV / 2;
+  const adc = Math.round(vDiv * 4095 / 3.3 + gaussian() * 5);
+  document.getElementById('adcReadout').textContent =
+    `ADC: ${adc} → ${vDiv.toFixed(2)}V mid → ${S.battV.toFixed(2)}V bat`;
+
+  // ---- RF Link ----
+  S.rssi = calcRSSI(S.distance, S.noise);
+  S.pdr = calcPDR(S.rssi);
+  const delivered = Math.random() * 100 < S.pdr;
+  if (delivered) S.delivered++; else S.dropped++;
+
+  // ---- Update HUD ----
+  document.getElementById('attitudeHud').innerHTML =
+    `ROLL  : ${S.roll.toFixed(2)}°\nPITCH : ${S.pitch.toFixed(2)}°\nYAW   : ${S.yaw.toFixed(2)}°`;
+
+  // ---- Update Stats ----
+  document.getElementById('statDelivered').textContent = S.delivered;
+  document.getElementById('statDropped').textContent = S.dropped;
+  document.getElementById('statRSSI').textContent = S.rssi.toFixed(0);
+  const totalPDR = S.delivered / (S.delivered + S.dropped) * 100;
+  document.getElementById('statPDR').textContent = totalPDR.toFixed(1) + '%';
+
+  // ---- Update Charts ----
+  const lbl = S.time.toFixed(1);
+  pushChart(chartEnv, lbl, S.temp, S.hum);
+  pushChart(chartBat, lbl, S.battV + gaussian()*0.01);
+  pushChart(chartLink, lbl, S.rssi, S.pdr);
+
+  // ---- Terminal Log ----
+  const status = delivered ? '<span class="pkt-ok">[DELIVERED] ✅</span>' : '<span class="pkt-drop">[DROPPED] ❌</span>';
+  logTerm(
+    `<span class="pkt-head">━━━ PKT #${S.pktID} ━━━ ${ts()} ━━━ Size: 71 B ━━━</span>\n` +
+    `<span class="pkt-mac">TX: ${S.txMAC} → RX: ${S.rxMAC}</span>  ${status}\n` +
+    `<span class="pkt-data">BME280 | T: ${S.temp.toFixed(2)}°C  P: ${S.pres.toFixed(1)}hPa  H: ${S.hum.toFixed(1)}%</span>\n` +
+    `<span class="pkt-data">MPU6050| R: ${S.roll.toFixed(1)}°  P: ${S.pitch.toFixed(1)}°  Y: ${S.yaw.toFixed(1)}°</span>\n` +
+    `<span class="pkt-data">BAT    | ${S.battV.toFixed(3)}V  ADC: ${adc}  RSSI: ${S.rssi.toFixed(0)} dBm  PDR: ${S.pdr.toFixed(1)}%</span>\n` +
+    `<span class="pkt-json">{"id":${S.pktID},"bme":{"t":${S.temp.toFixed(2)},"p":${S.pres.toFixed(1)},"h":${S.hum.toFixed(1)}},"mpu":{"r":${S.roll.toFixed(1)},"p":${S.pitch.toFixed(1)},"y":${S.yaw.toFixed(1)}},"bat":${S.battV.toFixed(3)},"rssi":${S.rssi.toFixed(0)}}</span>`
+  );
+}
+
+// ═══════════════════════════ SVG INTERACTIONS ═══════════════════
+function initSVGInteractions() {
+  // Highlight corresponding pins when hovering pinout table rows
+  const rows = document.querySelectorAll('.pin-table tbody tr[data-hl]');
+  rows.forEach(row => {
+    row.addEventListener('mouseenter', () => {
+      const pin = row.dataset.hl;
+      document.querySelectorAll(`.pin-dot[data-pin="${pin}"]`).forEach(p => {
+        p.setAttribute('r', '9');
+        p.style.filter = 'drop-shadow(0 0 10px #00ff88)';
+      });
+      row.style.background = '#1a3a2a';
+    });
+    row.addEventListener('mouseleave', () => {
+      document.querySelectorAll('.pin-dot').forEach(p => {
+        p.setAttribute('r', p.dataset.pin ? '5' : '4');
+        p.style.filter = '';
+      });
+      row.style.background = '';
+    });
+  });
+}
+
+// ═══════════════════════════ LINK BUDGET BARS ═══════════════════
+function renderLinkBudget() {
+  const el = document.getElementById('linkBudgetBars');
+  const distances = [1, 5, 10, 25, 50, 100, 200, 500];
+  let html = '';
+  distances.forEach(d => {
+    const fspl = 40 + 20 * Math.log10(d);
+    const rssi = 24 - fspl;
+    const margin = rssi - (-97);
+    const pct = Math.max(0, Math.min(100, margin));
+    const col = margin > 30 ? '#22c55e' : margin > 15 ? '#f59e0b' : margin > 5 ? '#f97316' : '#ef4444';
+    const icon = margin > 10 ? '✅' : margin > 0 ? '⚠️' : '❌';
+    html += `<div class="lb-bar-wrap">
+      <span class="lb-bar-label">${d} m</span>
+      <div style="flex:1;background:#1e3a5f;border-radius:3px;overflow:hidden">
+        <div class="lb-bar" style="width:${pct}%;background:${col}"></div>
+      </div>
+      <span class="lb-bar-val">${margin.toFixed(1)} dB ${icon}</span>
+      <span style="font-size:10px;color:var(--dim);min-width:80px">RSSI: ${rssi.toFixed(0)} dBm</span>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════ INIT ═══════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  initThree();
+  initSVGInteractions();
+  renderLinkBudget();
+
+  // Force chart canvases to have a real size before first draw
+  document.querySelectorAll('.chart-box canvas').forEach(c => {
+    const box = c.parentElement;
+    c.style.width  = box.clientWidth  + 'px';
+    c.style.height = (box.clientHeight - 20) + 'px';
+  });
+  charts.forEach(c => c.resize());
+
+  // Start simulation loop at 2 Hz
+  setInterval(simTick, 500);
+
+  // Boot message in terminal
+  logTerm('<span class="pkt-head">══════════════════════════════════════════</span>');
+  logTerm('<span class="pkt-ok">  🛰️  Smart CubeSat Testbed — ONLINE</span>');
+  logTerm('<span class="pkt-data">  ESP-NOW Simulation @ 2 Hz</span>');
+  logTerm('<span class="pkt-mac">  TX MAC: ' + S.txMAC + '</span>');
+  logTerm('<span class="pkt-mac">  RX MAC: ' + S.rxMAC + '</span>');
+  logTerm('<span class="pkt-head">══════════════════════════════════════════</span>');
+
+  // Resize charts again after a short delay to ensure layout is settled
+  setTimeout(() => { charts.forEach(c => c.resize()); resizeThree(); }, 300);
+  setTimeout(() => { charts.forEach(c => c.resize()); }, 1000);
+});
+</script>
+</body>
+</html>
